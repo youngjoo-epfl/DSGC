@@ -8,11 +8,7 @@ import tensorflow as tf
 from scipy import sparse
 from IPython import embed
 
-from libraries.coarsening_utils import *
-import libraries.graph_utils
-
 import pickle
-
 
 np.random.seed(1)
 
@@ -141,110 +137,6 @@ def getSamples(num_nodes, num_samples, train=True):
         tvs = convertToOneHot(randInt, num_classes=num_nodes) #[num_samples, num_node]
         test_vectors = np.expand_dims(np.transpose(tvs, [1,0]),1) #[num_node, num_samples]
         return test_vectors, setIdx
-#     else:
-#         test_vectors = np.expand_dims(np.eye(num_nodes),1)
-#         setIdx = convertToOneHot(np.arange(num_nodes), num_classes=num_nodes)   
-#         return test_vectors, setIdx
-
-# def getSamples(num_nodes, num_samples, train=True):
-#     '''
-#     This is a more recent and lightweight version of the getSubSet function.
-#     To avoid overfitting, a new sample set should be defined every time the network is run.
-    
-#     PARAMETERS
-#     ----------
-#     num_nodes: the size of the graph
-#     num_samples: how many diracs to create
-#     '''
-# #     if train:
-# #         num_samples = num_nodes
-# #         if num_samples <= num_nodes:
-# #             randInt = np.random.choice(range(num_nodes), num_samples, replace=False)
-# #         else:
-# #             randInt = np.random.choice(range(num_nodes), num_samples, replace=True)
-# #             randInt[:num_nodes] = np.arange(num_nodes)
-
-# #         setIdx = convertToOneHot(randInt, num_classes=num_nodes)        
-
-# #         tvs = convertToOneHot(randInt, num_classes=num_nodes) #[num_samples, num_node]
-# #         test_vectors = np.expand_dims(np.transpose(tvs, [1,0]),1) #[num_node, num_samples]
-# #         return test_vectors, setIdx
-# #     else:
-#     if True:
-#         test_vectors = np.expand_dims(np.eye(num_nodes),1)
-#         setIdx = convertToOneHot(np.arange(num_nodes), num_classes=num_nodes)   
-#         return test_vectors, setIdx
-
-    
-# def getSubSet(num_nodes, num_sim, graph=None, set_type='dirac'):
-#     '''    
-#     @ DEPRECATED FUNCTION
-#     Generate Testvectors
-#     generate [num_sim, num_node] size numpy ndarray 
-#     num_sim : number of test vectors 
-    
-#     set_type : 'dirac'
-#     each test vector has 1-hot vector on N-nodes.
-    
-#     set_type : 'edge'
-#     select random edge that has value on two connected node
-
-#     set_type: 'khop' [Not yet implemented]
-#     select random node and take k-hop neighbors 
-    
-#     TODO 
-#     * rename num_sim to num_samples
-#     * handle case  num_sim > num_nodes better
-#     '''
-#     if set_type == 'dirac':
-#         if num_sim <= num_nodes:
-#             randInt = np.random.choice(range(num_nodes), num_sim, replace=False)
-#             setIdx = convertToOneHot(randInt, num_classes=num_nodes)
-#         else:
-#             #want to equaly distributes the testvector on each node.
-#             randInt1 = np.random.choice(range(num_nodes), num_nodes, replace=False)
-#             setIdx = randInt1
-#             setIdx = convertToOneHot(randInt1, num_classes=num_nodes)
-#             #pad zeros
-#             padding = np.zeros([num_sim-num_nodes, num_nodes])
-#             setIdx = np.concatenate([setIdx, padding])
-#             randInt1 = np.expand_dims(randInt1, 1)
-#             randInt1 = np.repeat(randInt1, num_sim/num_nodes, 1)
-#             randInt1 = np.reshape(randInt1.transpose(), [-1])
-#             randInt2 = np.random.choice(range(num_nodes), num_sim%num_nodes)
-#             randInt = np.concatenate([randInt1, randInt2])
-
-#         tvs = convertToOneHot(randInt, num_classes=num_nodes) #[num_sim, num_node]
-    
-#     elif set_type == 'edge':
-#         num_nodes = graph.number_of_nodes()
-#         A = nx.adjacency_matrix(graph)
-#         pygspGraph = pygsp.graphs.Graph(A)
-#         v_in, v_out, e_weight = pygspGraph.get_edge_list()
-#         edge_list = []
-#         for i,j in zip(v_in, v_out):
-#             edge = np.zeros([pygspGraph.N])
-#             edge[i] = 0.5
-#             edge[j] = 0.5
-#             edge_list.append(edge)
-#         tvs = np.array(edge_list) #[num_edges, num_node] --> sample
-    
-#         num_edges = nx.number_of_edges(graph)
-#         if num_sim <= num_edges:
-#             randInt_edge = np.random.choice(range(num_edges), num_sim, replace=False)
-#         else:
-#             randInt1 = np.random.choice(range(num_edges), num_edges, replace=False)
-#             randInt1 = np.repeat(randInt1, num_sim/num_edges, 0)
-#             randInt2 = np.random.choice(range(num_edges), num_sim%num_edges)
-#             randInt_edge = np.concatenate([randInt1, randInt2])
-    
-#         tvs = edge_list[randInt_edge] #[num_sim, num_node]
-#     else:
-#         raise NotImplementedError("Use dirac or edge")
-    
-#     test_vectors = np.expand_dims(np.transpose(tvs, [1,0]),1) #[num_node, num_sim
-#     return test_vectors, setIdx
-
 
 
 def getLaplacian(nx_graphs, labels, node_label_max=2, verbose=0):
@@ -280,44 +172,7 @@ def getLaplacian(nx_graphs, labels, node_label_max=2, verbose=0):
             D = sparse.diags(d.A.squeeze(), 0)
             I = sparse.identity(d.size, dtype=W.dtype)
             L_norm = I - D*W*D
-            
-            # Use Adjacency as L
-            #L_norm = W
-            
-
-            # L is scaled iniside the network
-#             L_scaled = L_norm - I
-#             L = L_scaled.tocoo()
-#             indices = np.column_stack((L.row, L.col))
-#             L_tensor = tf.SparseTensorValue(indices, L.data, L.shape)
             graph_list.append(L_norm.tocoo())
-            #Node attributes
-            #node_attribute = [*nx.get_node_attributes(graph, 'label').values()]
-            #Convert to onehot
-            #node_attribute = convertToOneHot(np.array(node_attribute), node_label_max)
-            #attribute_list.append(np.array(node_attribute))
-            
-            #make deltas and Set "Here we define set"
-#             num_nodes = graph.number_of_nodes()
-#             deltas, setIdx = getSubSet(num_nodes, num_sim, graph, set_type="dirac")
-
-#             if coarsening :
-#                 #Get Coarsened version
-#                 C, Gc, Call, Gall = coarsen(G, K=5, r=0.5, method='variation_neighborhood')
-#                 G_coarsen = Gall[-1]
-#                 G_coarsen.compute_laplacian('normalized')
-#                 L_coarsen = G_coarsen.L.tocoo()
-#                 indices_c = np.column_stack((L_coarsen.row, L_coarsen.col))
-#                 L_tensor_c = tf.SparseTensorValue(indices_c, L_coarsen.data, L_coarsen.shape)
-#                 num_nodes_c = G_coarsen.N
-#                 deltas_c, setIdx_c  = getSubSet(num_nodes_c, num_sim, Gc)
-#                 graph_list.append(((L_tensor, num_nodes, deltas, setIdx, graph, node_attribute),(L_tensor_c, num_node_c, deltas_c, setIdx_c)))
-#             else:
-#             graph_list.append(((L_tensor, num_nodes, deltas, setIdx, graph, node_attribute),(None)))
-           
-        #else:
-        #    if verbose:
-        #        print("[!] Disconnected graph sample --> discard!")
     return graph_list, label_list, attribute_list
 
 def convertToOneHot(vector, num_classes=None):
@@ -413,75 +268,39 @@ def load_data(db_loc, ds_name, use_node_labels=False):
     return graph_list, labels, node_attributes, node_label_max
 
 
-# class dataLoader(object):
-#     """
-#     Provide data to for feed_dict.
-#     graphs and labels are list type of data.
-#     """
-#     def __init__(self, config):
-#         self.config = config
-#         #Load data
-#         use_node_label = False
-#         graphs, labels = load_data(config.data_dir, config.data_name, config.num_samples, use_node_label)
-
-#         #Split dataset into train and test --> further needs to be 10-CV
-#         train_data, test_data, train_label, test_label = train_test_split(graphs, labels,random_state=1,
-#                                                                           test_size=config.test_ratio, shuffle=True)
-
-#         self.train_data = train_data
-#         self.test_data = test_data
-#         self.train_label = train_label
-#         self.test_label = test_label
-
-#         self.num_tr = len(train_data)
-#         self.num_te = len(test_data)
-#         self.batch_size = config.batch_size
-#         self.batch_size_test = config.batch_size_test
-#         self.num_batch_tr = self.num_tr/config.batch_size
-#         self.num_batch_te = self.num_te/config.batch_size_test
-#         self.curr_p = 0
-
-#     def reset(self):
-#         self.curr_p =0
-
-# #     def reshuffle(self):
-# #         np.random.shuffle(self.train_data)
-
-
-#     def __iter__(self):
-#         return self
-
-#     def __next__(self, is_train=True):
-#         if is_train:
-#             next_p = self.curr_p + self.batch_size
-#             if next_p > self.num_tr:
-#                 self.reset()
-# #                 self.reshuffle()
-#                 next_p = self.curr_p + self.batch_size
-
-#             data = self.train_data[self.curr_p:next_p]
-
-#             label = self.train_label[self.curr_p:next_p]
-#             self.curr_p += self.batch_size
-
-#         else:
-#             next_p = self.curr_p + self.batch_size_test
-#             if next_p > self.num_te:
-#                 self.reset()
-#                 next_p = self.curr_p + self.batch_size_test
-
-#             data = self.test_data[self.curr_p:next_p]
-#             label = self.test_label[self.curr_p:next_p]
-#             self.curr_p += self.batch_size_test
-#         return data, label
-
-#     next = __next__
-
-
 def load_dataset_from_name(name, *args, **kwargs):
     """Load a dataset from its name."""
     dir_path = os.path.dirname(os.path.realpath(__file__))
     datapath = os.path.join(dir_path, 'data')
     
     return load_data(datapath, name, *args, **kwargs)
+
+
+def generate_fakeDB():
+    """
+    Generate fake dataset for testing
+    output: graphs - list of graph signal
+            labels - list of multi-class label
+    """
+    #Gen SBM
+    sizes = [39255, 39255, 39256]
+    probs = [[0.25, 0.05, 0.02],
+            [0.05, 0.35, 0.07],
+            [0.02, 0.07, 0.40]]
+    graph = nx.stochastic_block_model(sizes, probs, seed=0)
+    W = nx.adjacency_matrix(graph)
+    G = pygsp.graphs.Graph(W)
+    W = W.astype(float)
+    d = W.sum(axis=0)
+    d += np.spacing(np.array(0, W.dtype))
+    d = 1.0 / np.sqrt(d)
+    D = sparse.diags(d.A.squeeze(), 0)
+    I = sparse.identity(d.size, dtype=W.dtype)
+    L_norm = I - D*W*D
+    L = L_norm.tocoo()
+    
+    graph_signals = np.random.random([117766, 1921])
+    labels = (np.random.random([117766, 23]) > 0.5 )*1
+
+    return graph_signals, labels, L
     

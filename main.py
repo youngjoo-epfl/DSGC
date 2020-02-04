@@ -1,8 +1,6 @@
-
-
 # Go one folder back because we are in the notebook folder
 import sys
-sys.path.insert(0, '../')
+#sys.path.insert(0, '../')
 
 # Use only the first GPU of the machine
 import os
@@ -17,16 +15,12 @@ from sklearn.metrics import accuracy_score, f1_score
 
 # Dataset selection
 data_name = 'NCI1'
-#exp_name  = 'batch20_multi_set_norm_hist_MT_recheck'
-#net_name = data_name + ' ' + exp_name
 
-# Size of the validation set
-#n_validation = 32
-
+# Load dataset
 graphs, labels, node_attributes, node_label_max = load_dataset_from_name(data_name, use_node_labels=False)
-#from IPython import embed
-#embed()
-#raise ValueError('check')
+from IPython import embed
+embed()
+raise ValueError('check')
 n_classes = len(np.unique(labels))
 
 
