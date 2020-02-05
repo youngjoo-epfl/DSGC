@@ -82,8 +82,8 @@ class GCNet(BaseNet):
         
         #Loss-define
         #self._loss = tf.losses.softmax_cross_entropy(onehot_labels=self.y, logits=self.logits)
-        self._loss = tf.nn.sigmoid_cross_entropy_with_logits(labels=self.y, logits=self.logits)
-
+        self._loss = tf.reduce_sum(tf.nn.sigmoid_cross_entropy_with_logits(labels=self.y, logits=self.logits))
+        rprint('   loss shape: {}'.format(self._loss.shape), reuse=False)
 
 
 
