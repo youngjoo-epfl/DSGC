@@ -157,10 +157,10 @@ def graphConv_layer(x, L, shape, flag_reuse, scope, scale=0.8, epsilon=1e-8, typ
                 initializer=tf.zeros_initializer())
     n_nodes = tf.shape(x)[0]
     feat_in = tf.shape(x)[1]
-    n_samples = tf.shape(x)[2]
+    #n_samples = tf.shape(x)[2]
     output_list = []
     x0 = x
-    x0 = tf.reshape(x0, [n_nodes, feat_in*n_samples]) # Is there anyway to merge two dim directly without using reshape?
+    x0 = tf.reshape(x0, [n_nodes, feat_in]) # Is there anyway to merge two dim directly without using reshape?
     output_list.append(x0)
     if khops > 1:
         x1 = tf.sparse_tensor_dense_matmul(L_scale, x0)
@@ -172,12 +172,12 @@ def graphConv_layer(x, L, shape, flag_reuse, scope, scale=0.8, epsilon=1e-8, typ
         x0, x1 = x1, x2
 
     x = tf.stack(output_list) # x is now [khops, num_nodes, feat_in*num_sample] size tensor    
-    x = tf.reshape(x, [khops, n_nodes, feat_in, n_samples])
-    x = tf.transpose(x, perm=[3,1,2,0]) #num_sample, num_nodes, feat_in, khops=num_masks]
-    x = tf.reshape(x, [n_samples, n_nodes, feat_in*khops]) #[num_sample, num_nodes, khops]
+    x = tf.reshape(x, [khops, n_nodes, feat_in])
+    x = tf.transpose(x, perm=[1,2,0]) #num_nodes, feat_in, khops=num_masks]
+    x = tf.reshape(x, [n_nodes, feat_in*khops]) #[num_sample, num_nodes, khops]
     
     # Reshape output
-    out = tf.tensordot(x, gweights, axes=[2, 0]) + gbias # out is [num_sample, num_node, feat_out] size tensor
+    out = tf.tensordot(x, gweights, axes=[1, 0]) + gbias # out is [num_node, feat_out] size tensor
 
     return out 
 

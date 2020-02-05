@@ -6,6 +6,7 @@ from . import utils
 import time
 import yaml
 from copy import deepcopy
+from IPython import embed
 
 class NNSystem(object):
     """A system to handle Neural Network"""

@@ -22,7 +22,11 @@ class GCNet(BaseNet):
         d_params['flag_tanh'] = True
         d_params['use_attributes'] = False
         d_params['use_sum_arch'] = False
+        d_params['laplacian'] = None
         return d_params
+    #def __init__(self, *args, **kwargs):
+    #    super().__init__(*args, **kwargs)
+    #    self._given_L = L
     
     def _build_net(self):
         rprint('--- Build GCNet ---', reuse=False)
@@ -32,15 +36,17 @@ class GCNet(BaseNet):
 
         # 1) make the placeholders
         self.L = tf.sparse_placeholder(dtype=tf.float32, name='L')
-        self.y = tf.placeholder(tf.int32, shape=[1, self.params['n_classes']])
+        #self.y = tf.placeholder(tf.int32, shape=[1, self.params['n_classes']])
+        self.y = tf.placeholder(tf.float32, shape=[1, self.params['n_classes']])
 
-        shape_x = [None, 1, None]
+        #shape_x = [None, 1, 1] #[Num_sample, Nume_node, feat_in]
+        shape_x = [None, 1] #[Nume_node, feat_in]
         self.x = tf.placeholder(tf.float32, shape=shape_x, name = "x")
         
-        shape_Idx = [None, None]
-        self.setIdx = tf.placeholder(tf.float32, shape=shape_Idx, name = "setIdx")
+        #shape_Idx = [None, None]
+        #self.setIdx = tf.placeholder(tf.float32, shape=shape_Idx, name = "setIdx")
         
-        shape_attributes = [None, self.params['node_label_max']] #[num_nodes, feat_dim]
+        #shape_attributes = [None, self.params['node_label_max']] #[num_nodes, feat_dim]
         #self.node_attributes = tf.placeholder(tf.float32, shape=shape_attributes, name="node_attributes")
 
         self._inputs = (self.L, self.y, self.x)
@@ -56,53 +62,15 @@ class GCNet(BaseNet):
         scope = "layer_node_embedding"
         khop = self.params['node_khop']
         feat_out = self.params['node_feat_out']
-        x, x_e1, x_e2, x_e_lstm, x_e_state  = self.graph_hist_layer(self.x, khop, feat_out, scope, self.params['flag_mask'])
-        ##INFO x = [num_sample feat_out, bin]
-        ## incase of x_list = [num_sample, feat_out]
-
-        self.embedding_node = x
-        #self.embedding_node = x_e_lstm[-1]
-        ## 3) Second convolution layer to go to the graph embedding
-        ## lift to a tensor of num_nodes size (when performing the computation for a node subset)
-        
-        x = convertToGraph(x, self.setIdx)
-        #x = convertToGraph(x_e_lstm[-1], self.setIdx)
-        ## x = [Node, feat_out*bin, 1] --> in the graph embedding layer it will work as an input
-        self.converted = x
-        ##Here I need to add up attributes info into x
-        if self.params['use_attributes']:
-            print("I am using node attributes!!!!!")
-            embed()
-            #x = tf.concat([x, tf.expand_dims(self.node_attributes, 2)], 1) #This is concatenated feature with attributes
-            #x = tf.expand_dims(self.node_attributes, 2) #only node attributes
-        
-            ##Removing node which is not used
-            #used_node = tf.cast(tf.matmul(tf.transpose(self.setIdx), self.setIdx), dtype=tf.bool)
-            #used_node = tf.cast(used_node, dtype=tf.float32)
-            #x = tf.tensordot(used_node, x, axes=[0,0])
-        
-
-        
-        rprint(' Graph convolution for graph embedding', reuse=False)
-
-        scope = "layer_graph_embedding"
-        khop = self.params['graph_khop']
-        feat_out = self.params['graph_feat_out']
-        x, x_g1, x_g2, x_g_lstm, x_g_state = self.graph_hist_layer(x, khop, feat_out, scope, False)
-        self.embedding_graph = x
-        #self.embedding_graph = x_g_lstm[-1]
-        # for checkign feature
-        self._x_e1 = x_e1
-        self._x_e2 = x_e2
-        self._x_g1 = x_g1
-        self._x_g2 = x_g2
-
+        x = self.graph_hist_layer(self.x, khop, feat_out, scope, self.params['flag_mask'])
+        ##INFO x = [num_node, feat_out]
+        x = tf.reduce_sum(x, 0, keepdims=True)
 
         #fc-layer
         rprint(' End of convolution layers', reuse=False)            
         rprint('   x output shape: {}'.format(x.shape), reuse=False)
         rprint(' Fully connected layers with {} outputs'.format(self.params['n_classes']), reuse=False)            
-        x = tf.layers.flatten(x)
+        #x = tf.layers.flatten(x_feat)
         #x = x_g_lstm[-1]
         #x = tf.layers.flatten(x_g_lstm)
         rprint('   Reshape all embeddings to: {}'.format(x.shape), reuse=False)
@@ -113,7 +81,8 @@ class GCNet(BaseNet):
         self._outputs = tf.nn.softmax(self.logits, axis=1)
         
         #Loss-define
-        self._loss = tf.losses.softmax_cross_entropy(onehot_labels=self.y, logits=self.logits)
+        #self._loss = tf.losses.softmax_cross_entropy(onehot_labels=self.y, logits=self.logits)
+        self._loss = tf.nn.sigmoid_cross_entropy_with_logits(labels=self.y, logits=self.logits)
 
 
 
@@ -128,7 +97,7 @@ class GCNet(BaseNet):
             rprint('   x input shape: {}'.format(x.shape), reuse=False)
             shape = [khop[idx], feat_in, feat_out[idx]]
             x = graphConv_layer(x, self.L, shape, False, f'{scope}_{idx}')
-            x = tf.transpose(x, perm=[1,2,0]) 
+            #x = tf.transpose(x, perm=[1,2,0]) 
             rprint('    Variable size after convolution {}: {}'.format(idx, x.shape), reuse=False)
             if idx<len(khop)-1:
                 # relu 
@@ -136,67 +105,15 @@ class GCNet(BaseNet):
                 feat_in = feat_out[idx]
         rprint(' End of convolution layers', reuse=False)            
         
-        x = tf.transpose(x, perm=[2,0,1]) 
-        rprint(' Reshape to : {}'.format(x.shape), reuse=False)
+        #x = tf.transpose(x, perm=[2,0,1]) 
+        rprint(' Reshape of output Conv : {}'.format(x.shape), reuse=False)
 
-        
-        
-        # get receptive field masks
-        mask, mask_norm = getReceptiveField(x)
-
-        rprint(' Normalization', reuse=False)
-        # graph normalization layer
-        x_norm, x_mean, x_std, x_sum = histNorm_layer(x,
-                                          mask_norm,
-                                          norm_coef=self.params['norm_coef'],
-                                          flag_mask=flag_mask,
-                                          flag_norm=self.params['flag_norm'])
-
-        # activation
-        if self.params['flag_tanh']: 
-            rprint(' Tanh', reuse=False)
-            x_norm = tf.tanh(x_norm)
-
-        rprint(' Histogram layer', reuse=False)
-
-        # projective histogram layer
-        #x_hist, x_repeat, bin_repeat, theta = projHist_layer(x_norm, 
-        x_hist, x_lstm, x_state = projHist_layer(x_norm, 
-                                mask_norm, 
-                                f'{scope}',
-                                num_bins=self.params['n_bins'], 
-                                flag_mask=self.params['flag_mask'])
-        #Size : [n_sample, n_nodes, featout=fout*nbins]
-        #If we do LSTM, [n_sample, n_nodes, fout or some hidden dim]
-
-        #To check
-        #self._x_repeat = x_repeat
-        #self._bin_repeat = bin_repeat
-        #self._x_sum  = x_sum
-        
-        rprint(' * Variable size after histogram: {}'.format(x_hist.shape), reuse=False)
-
-#         # keep mean and variance? 
-        if self.params['flag_stats']=='hist_stats':
-            x_hist = tf.concat([x_hist, tf.transpose(x_mean, (0,2,1)), tf.transpose(x_std, (0,2,1))], 2)
-            rprint(' * Variable size after adding stats: {}, aggr : {}'.format(x_hist.shape, self.params['flag_stats']), reuse=False)
-        elif self.params['flag_stats']=='hist':
-            x_hist = x_hist
-            rprint(' * Variable size after adding stats: {}, aggr : {}'.format(x_hist.shape, self.params['flag_stats']), reuse=False)
-        elif self.params['flag_stats']=='avg':
-            x_hist = tf.transpose(x_mean, (0,2,1))
-            rprint(' * Variable size after adding stats: {}, aggr : {}'.format(x_hist.shape, self.params['flag_stats']), reuse=False)
-        elif self.params['flag_stats']=='sum':
-            x_hist = tf.transpose(x_sum, (0,2,1))
-            rprint(' * Variable size after adding stats: {}, aggr : {}'.format(x_hist.shape, self.params['flag_stats']), reuse=False)
-
+        #Read-out
         if True:
             tf.summary.histogram("output/%s/gout"%scope, x)
-            tf.summary.histogram("output/%s/gout_norm"%scope, x_norm)
-            tf.summary.histogram("output/%s/hist"%scope, x_hist)
             
         #return x_hist
-        return x_hist, x_norm, x, x_lstm, x_state
+        return x
 
     def _add_summary(self):
         super()._add_summary()        
@@ -204,10 +121,10 @@ class GCNet(BaseNet):
         for trainVars in tf.trainable_variables():
             tf.summary.histogram("params/%s"%trainVars.name, trainVars, collections=["train"])
 
-    def batch2dict(self, batch, train=True):
+    def batch2dict(self,batch, train=True):
         #return L2feeddict(batch[0], self.params['n_vectors'], batch[1], train)
         #return L2feeddict(batch[0], self.params['n_vectors'], y=batch[1], node_attributes=batch[2], train=train)
-        return L2feeddict(batch[0], self.params['n_vectors'], y=batch[1], node_attributes=None, train=train)
+        return L2feeddict(self.params['laplacian'], batch[0], y=batch[1], node_attributes=None, train=train)
         
 
 

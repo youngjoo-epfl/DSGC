@@ -20,7 +20,7 @@ from IPython import embed
 
 from tfnntools.nnsystem import NNSystem
 from sklearn.metrics import accuracy_score, f1_score
-from sklearn.model_selection import StratifiedKFold
+from sklearn.model_selection import StratifiedKFold, KFold
 from utils import Dataset, convertToOneHot
 
 class PredictionNNSystem(NNSystem):
@@ -102,11 +102,11 @@ class PredictionNNSystem(NNSystem):
                 feed_dict = self.net.batch2dict(batch, train=False)
 #                 p.append(self.outputs(sess=self._sess,**feed_dict))
                 #o = self.eval([self.net.logits, self.net.loss, self.net.node_attributes], sess=self._sess, **feed_dict)
-                o = self.eval([self.net.logits, self.net.loss, 
-                    self.net.embedding_node,self.net.converted, self.net._x_e1,self.net._x_e2, 
-                    self.net.embedding_graph, self.net._x_g1, self.net._x_g2], sess=self._sess, **feed_dict)
+                #o = self.eval([self.net.logits, self.net.loss, 
+                #    self.net.embedding_node,self.net.converted, self.net._x_e1,self.net._x_e2, 
+                #    self.net.embedding_graph, self.net._x_g1, self.net._x_g2], sess=self._sess, **feed_dict)
                 
-                #o = self.eval([self.net.logits, self.net.loss], sess=self._sess, **feed_dict)
+                o = self.eval([self.net.logits, self.net.loss], sess=self._sess, **feed_dict)
                 #embed()
                 #raise ValueError('stop')
                 p.append(o[0])
@@ -279,7 +279,7 @@ class KFoldTrainer(object):
         else:
             self._node_attributes = None
         self._labels = labels
-        self._N = len(labels) 
+        self._N = labels.shape[0] 
         self._name = name
         self._dbname = dbname
         self._n_folds = n_folds
@@ -297,7 +297,8 @@ class KFoldTrainer(object):
         self.test_f1s   = np.zeros((n_folds))
         self.max_f1s   = np.zeros((n_folds))
         
-        y = convertToOneHot(self._labels)
+        #y = convertToOneHot(self._labels)
+        y = self._labels
         for fold, (train_idx, test_idx, val_idx) in enumerate(zip(*self._picked_k_fold)):
             if fold == 1:
                 raise ValueError('stop')
@@ -320,50 +321,18 @@ class KFoldTrainer(object):
             print('  - Validation : {}/{}'.format(val_dataset.N, self._N ))
             
             # Change the saved directory
-            #embed()
             self.system._params['save_dir'] = self._save_dir + '_{}'.format(fold)
             self.system._params['summary_dir'] = self._summary_dir + '_{}'.format(fold)
-            #embed()
+            
             self.system.train(train_dataset, val_dataset, test_dataset, resume=False)
-            #embed()
-            #raise ValueError('he')
             checkpoint_f1, checkpoint_loss = self.system.best_checkpoint
             # Average over 10 realization to be even more precise.
             self.system.params['average_validation'] = 1
             
-            #pred_train, labels_train,_,_,_ = self.system.predict_dataset(train_dataset, checkpoint=checkpoint_loss)
-            #pred_valid, labels_valid,_,_,_ = self.system.predict_dataset(val_dataset, checkpoint=checkpoint_loss)
-            #pred_test, labels_test,_,_,_ = self.system.predict_dataset(test_dataset, checkpoint=checkpoint_loss)
-            #
-            #self.train_f1s[fold]  = f1_score(labels_train, pred_train, average='weighted')
-            #self.train_accs[fold] = accuracy_score(labels_train, pred_train)
-
-            #self.val_f1s[fold]  = f1_score(labels_valid, pred_valid, average='weighted')
-            #self.val_accs[fold] = accuracy_score(labels_valid, pred_valid)
-
-            #self.test_f1s[fold]  = f1_score(labels_test, pred_test, average='weighted')
-            #self.test_accs[fold] = accuracy_score(labels_test, pred_test)
-            #
-            #self.max_f1s[fold] = self.system.max_f1
-            #
-            #ret = dict()
-            #ret['train_accs'] = self.train_accs
-            #ret['val_accs']   = self.val_accs 
-            #ret['test_accs']  = self.test_accs 
-            #ret['train_f1s']  = self.train_f1s
-            #ret['val_f1s']    = self.val_f1s 
-            #ret['test_f1s']   = self.test_f1s
-            #ret['max_f1s']    = self.max_f1s
-            #
-            #np.savez('result_vis/{}/f1_{}'.format(self._dbname, self._name), **ret, n_folds=self._n_folds, picked_k_fold=self._picked_k_fold)
-        
-
             pred_train, labels_train,_,_ = self.system.predict_dataset(train_dataset, checkpoint=checkpoint_loss)
             pred_valid, labels_valid,_,_ = self.system.predict_dataset(val_dataset, checkpoint=checkpoint_loss)
             pred_test, labels_test,_, save_info = self.system.predict_dataset(test_dataset, checkpoint=checkpoint_loss, savefeat=True)
 
-            #embed()
-            
             self.train_f1s[fold]  = f1_score(labels_train, pred_train, average='weighted')
             self.train_accs[fold] = accuracy_score(labels_train, pred_train)
 
@@ -388,16 +357,17 @@ class KFoldTrainer(object):
             #ret['graph_embedding'] = graph_embedding
             #ret['test_idx'] = test_idx
             
-            np.savez('result_vis/{}/loss_{}'.format(self._dbname, self._name), **ret, n_folds=self._n_folds, picked_k_fold=self._picked_k_fold)
+            np.savez('result/loss_{}'.format(self._name), **ret, n_folds=self._n_folds, picked_k_fold=self._picked_k_fold)
         
         return ret
             
     
     def draw_kfold(self):
-        skf = StratifiedKFold(self._n_folds, shuffle=True, random_state=12345)
+        #skf = StratifiedKFold(self._n_folds, shuffle=True, random_state=12345)
+        kf = KFold(self._n_folds, shuffle=True, random_state=12345)
 
         test_indices, train_indices = [], []
-        for _, idx in skf.split(np.zeros(self._N), self._labels):
+        for _, idx in kf.split(np.zeros(self._N)):
             test_indices.append(idx)
 
         val_indices = [test_indices[i - 1] for i in range(self._n_folds)]

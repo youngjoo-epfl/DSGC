@@ -31,14 +31,14 @@ class Dataset(object):
         else:
             indexes = np.arange(self.N)
         if self.node_attributes is not None:
-            return zip(self.graphs[indexes], self.labels[indexes], self.node_attributes[indexes])
+            return zip(np.expand_dims(self.graphs[indexes],2), self.labels[indexes], self.node_attributes[indexes])
         else:
-            return zip(self.graphs[indexes],self.labels[indexes])
+            return zip(np.expand_dims(self.graphs[indexes],2), self.labels[indexes])
     @property
     def N(self):
         return self._N
     
-def L2feeddict(L, n_vectors, y=None, node_attributes=None, train=True, use_all=False):
+def L2feeddict(L, signal, y=None, node_attributes=None, train=True, use_all=False):
     """
     [07. 26. 2019 : Need to extend for node attributes]
     """
@@ -50,10 +50,10 @@ def L2feeddict(L, n_vectors, y=None, node_attributes=None, train=True, use_all=F
     feed_dict['L'] = tfL
     n_nodes = L.shape[0]
     #deltas, setIdx = getSamples(n_nodes, n_nodes, train)
-    deltas, setIdx = getSamples(n_nodes, n_vectors, train)
+    #deltas, setIdx = getSamples(n_nodes, n_vectors, train)
     #deltas, setIdx, node_attributes = getSamples(n_nodes, n_vectors, train)
-    feed_dict['x'] = deltas
-    feed_dict['setIdx'] = setIdx
+    feed_dict['x'] = signal
+    #feed_dict['setIdx'] = setIdx
 
     #This is for node attributes
     #if node_attributes is not None:
@@ -276,14 +276,14 @@ def load_dataset_from_name(name, *args, **kwargs):
     return load_data(datapath, name, *args, **kwargs)
 
 
-def generate_fakeDB():
+def generate_fakeDB(sizes, num_sample, num_classes):
     """
     Generate fake dataset for testing
     output: graphs - list of graph signal
             labels - list of multi-class label
     """
     #Gen SBM
-    sizes = [39255, 39255, 39256]
+    num_node = np.array(sizes).sum()
     probs = [[0.25, 0.05, 0.02],
             [0.05, 0.35, 0.07],
             [0.02, 0.07, 0.40]]
@@ -299,8 +299,13 @@ def generate_fakeDB():
     L_norm = I - D*W*D
     L = L_norm.tocoo()
     
-    graph_signals = np.random.random([117766, 1921])
-    labels = (np.random.random([117766, 23]) > 0.5 )*1
-
+    graph_signals = np.random.random([num_sample, num_node])
+    #Multi-label
+    labels = (np.random.random([num_sample, num_classes]) > 0.5 )*1
+    #labels = np.float((np.random.random([num_sample, num_classes]) > 0.5 )*1)
+    
+    #Single-label
+    #labels = np.random.choice(num_classes, num_sample)
+    #labels = convertToOneHot(labels, num_classes)
     return graph_signals, labels, L
     
