@@ -143,18 +143,12 @@ class NNSystem(object):
                     new_lr = self._sess.run(new_lr)
                     #new_lr = np.max([new_lr, 0.00001])
                     self._params['optimization']['learning_rate']=new_lr
-                    print("learning rate : %f"%self._params['optimization']['learning_rate'])
+                    #print("learning rate : %f"%self._params['optimization']['learning_rate'])
                     
                     for idx, batch in enumerate(
                             dataset.iter(batch_size)):
                         feed_dict = self._get_dict(**self._net.batch2dict(batch))
 
-#                         curr_loss = self.net.loss.eval(feed_dict)
-#                         if np.isnan(curr_loss):
-#                             self._save()
-#                             return batch_old, feed_dict_old
-#                         batch_old = batch
-#                         feed_dict_old = feed_dict
                         curr_loss = self._run_optimization(feed_dict, idx, self._epoch)
 #                        epoch_loss += curr_loss
                         self._counter += 1

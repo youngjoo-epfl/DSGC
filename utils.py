@@ -31,9 +31,18 @@ class Dataset(object):
         else:
             indexes = np.arange(self.N)
         if self.node_attributes is not None:
+            #Reshape for batch
             return zip(np.expand_dims(self.graphs[indexes],2), self.labels[indexes], self.node_attributes[indexes])
         else:
-            return zip(np.expand_dims(self.graphs[indexes],2), self.labels[indexes])
+            #Reshape for batch
+            
+            n_batch = int(self.graphs.shape[0] / batch_size)
+            data = self.graphs[:n_batch*batch_size]
+            data = data.reshape(n_batch, batch_size, self.graphs.shape[1])
+            label = self.labels[:n_batch*batch_size]
+            label = label.reshape(n_batch, batch_size, self.labels.shape[1])
+            #return zip(np.expand_dims(self.graphs[indexes],2), self.labels[indexes])
+            return zip(np.expand_dims(data,3), label)
     @property
     def N(self):
         return self._N
@@ -60,7 +69,8 @@ def L2feeddict(L, signal, y=None, node_attributes=None, train=True, use_all=Fals
     #    feed_dict['node_attributes'] = node_attributes
 
     if y is not None:
-        feed_dict['y'] = np.expand_dims(y, axis=0)
+        feed_dict['y'] = y
+        #feed_dict['y'] = np.expand_dims(y, axis=0)
     if node_attributes is not None:
         #Here, the node_attributes should be match with the size of placeholder!!
         feed_dict['node_attributes'] = node_attributes

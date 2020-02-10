@@ -37,10 +37,10 @@ class GCNet(BaseNet):
         # 1) make the placeholders
         self.L = tf.sparse_placeholder(dtype=tf.float32, name='L')
         #self.y = tf.placeholder(tf.int32, shape=[1, self.params['n_classes']])
-        self.y = tf.placeholder(tf.float32, shape=[1, self.params['n_classes']])
+        self.y = tf.placeholder(tf.float32, shape=[None, self.params['n_classes']])
 
         #shape_x = [None, 1, 1] #[Num_sample, Nume_node, feat_in]
-        shape_x = [None, 1] #[Nume_node, feat_in]
+        shape_x = [None, None, 1] #[Batch, Nume_node, feat_in]
         self.x = tf.placeholder(tf.float32, shape=shape_x, name = "x")
         
         #shape_Idx = [None, None]
@@ -63,8 +63,9 @@ class GCNet(BaseNet):
         khop = self.params['node_khop']
         feat_out = self.params['node_feat_out']
         x = self.graph_hist_layer(self.x, khop, feat_out, scope, self.params['flag_mask'])
-        ##INFO x = [num_node, feat_out]
-        x = tf.reduce_sum(x, 0, keepdims=True)
+        ##INFO x = [batch, num_node, feat_out]
+        #x = tf.reduce_sum(x, 1, keepdims=True)
+        x = tf.reduce_sum(x, 1) #[batch, feat_out]
 
         #fc-layer
         rprint(' End of convolution layers', reuse=False)            
@@ -90,7 +91,7 @@ class GCNet(BaseNet):
         
     def graph_hist_layer(self, x, khop, feat_out, scope, flag_mask):
         assert(len(khop)==len(feat_out))
-        feat_in = x.shape[1]
+        feat_in = x.shape[2]
         n_nodes = tf.shape(self.L)[0]
         for idx in range(len(khop)):
             rprint(' * Layer {} with {} graph convolution'.format(idx, feat_out[idx]), reuse=False)

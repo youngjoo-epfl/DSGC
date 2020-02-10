@@ -4,7 +4,7 @@ import sys
 
 # Use only the first GPU of the machine
 import os
-os.environ["CUDA_VISIBLE_DEVICES"]="2"
+os.environ["CUDA_VISIBLE_DEVICES"]="1"
 
 # Load packages
 import numpy as np
@@ -18,9 +18,9 @@ from IPython import embed
 data_name = 'default'
 
 # Load dataset
-sizes = [100, 200 ,300]
+sizes = [500, 500 ,900]
 num_sample = 100000
-n_classes = 2
+n_classes = 23
 
 graphs, labels, L = generate_fakeDB(sizes, num_sample, n_classes)
 
@@ -28,15 +28,15 @@ graphs, labels, L = generate_fakeDB(sizes, num_sample, n_classes)
 params = dict()
 params['optimization'] = dict()
 params['optimization']['learning_rate'] = 0.0001
-params['optimization']['batch_size'] = 128
+params['optimization']['batch_size'] = 512
 params['optimization']['epoch'] = 1200
 params['optimization']['kwargs'] = {'beta1':0.99, 'beta2':0.999}
 
 # Network
 params['net'] = dict()
 params['net']['n_classes'] = n_classes
-params['net']['node_feat_out'] = [32,32,32,32]
-params['net']['node_khop'] = [3,3,3,3]
+params['net']['node_feat_out'] = [32]
+params['net']['node_khop'] = [3]
 params['net']['graph_feat_out'] = [32,32,16,16]
 params['net']['graph_khop'] = [3,3,3,3]
 params['net']['norm_coef'] = 1
@@ -49,7 +49,7 @@ params['net']['laplacian'] = L
 #params['net']['node_label_max'] = node_label_max
 
 # EXP name
-exp_name  = 'bc%d_bin%d_%s_vis_test_1200epoch'%(params['optimization']['batch_size'], params['net']['n_bins'], params['net']['flag_stats'])
+exp_name  = 'fake_bc%d_bin%d_%s_vis_test_1200epoch'%(params['optimization']['batch_size'], params['net']['n_bins'], params['net']['flag_stats'])
 net_name = data_name + ' ' +exp_name
 
 # Save and summaries
